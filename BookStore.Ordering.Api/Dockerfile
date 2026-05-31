@@ -7,9 +7,9 @@ WORKDIR /src
 
 COPY . .
 
-RUN dotnet restore "BookStore.Catalog.API/BookStore.Catalog.API.csproj"
+RUN dotnet restore "BookStore.Ordering.API/BookStore.Ordering.API.csproj"
 
-RUN dotnet publish "BookStore.Catalog.API/BookStore.Catalog.API.csproj" \
+RUN dotnet publish "BookStore.Ordering.API/BookStore.Ordering.API.csproj" \
     -c Release \
     -o /app/publish
 
@@ -18,4 +18,4 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-ENTRYPOINT ["dotnet", "BookStore.Catalog.API.dll"]
+ENTRYPOINT ["dotnet","BookStore.Ordering.API.dll"]
