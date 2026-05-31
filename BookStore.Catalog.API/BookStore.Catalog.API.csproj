@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>2578ca15-0d98-482e-ab07-1f2122da5ef0</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.16" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.16"/>
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BookStore.Catalog.Infrastructure\BookStore.Catalog.Infrastructure.csproj" />
+    <ProjectReference Include="..\BookStore.Ordering.Application\BookStore.Ordering.Application.csproj" />
+    <ProjectReference Include="..\BookStore.Shared.API\BookStore.Shared.API.csproj" />
+    <ProjectReference Include="..\BookStore.Shared.Common\BookStore.Shared.Common.csproj" />
+    <ProjectReference Include="..\Shared.Contracts\Shared.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

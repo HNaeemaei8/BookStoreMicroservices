@@ -1,0 +1,41 @@
+﻿using BookStore.Ordering.API.Extention;
+using BookStore.Ordering.Infrastructure.Extensions;
+using BookStore.Shared.API.DependencyInjection;
+using BookStore.Shared.API.Middleware;
+using System.Reflection;
+
+
+
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddOrderingApi();
+
+builder.Services.AddInfrastructure(
+    builder.Configuration);
+
+
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssemblyContaining<
+        BookStore.Ordering.Application.AssemblyReference>());
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseSharedApi();
+
+app.MapControllers();
+
+app.Run();
