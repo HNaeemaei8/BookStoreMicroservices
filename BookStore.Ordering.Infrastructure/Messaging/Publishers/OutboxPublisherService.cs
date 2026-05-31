@@ -2,6 +2,7 @@
 using Domain.Entities.IntegrationEventLog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OrderService.Application.Interfaces;
 using Polly;
 using Shared.Contracts.Events;
@@ -13,11 +14,11 @@ public class OutboxPublisherService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IAsyncPolicy _retryPolicy;
-
-    public OutboxPublisherService(IServiceScopeFactory scopeFactory)
+    private readonly ILogger<OutboxPublisherService> _logger;
+    public OutboxPublisherService(IServiceScopeFactory scopeFactory, ILogger<OutboxPublisherService> logger)
     {
         _scopeFactory = scopeFactory;
-
+        _logger = logger;
         _retryPolicy = Policy
             .Handle<Exception>()
             .WaitAndRetryAsync(3, i => TimeSpan.FromSeconds(i * 2));
@@ -40,52 +41,46 @@ public class OutboxPublisherService : BackgroundService
                 try
                 {
                     repo.MarkAsProcessing(eventLog);
-                    await uow.SaveChangesAsync(CancellationToken.None);
-
-                    var eventType = Type.GetType(eventLog.EventType);
-                    var message = JsonSerializer.Deserialize(eventLog.EventData, eventType);
-
-                   
-                    var queue = GetQueueName(eventType);
-                    await bus.PublishAsync((dynamic)message, queue);
-
-                    repo.MarkAsPublished(eventLog);
-                    await uow.SaveChangesAsync(CancellationToken.None);
-                }
-                catch
-                {
-                    repo.MarkAsFailed(eventLog);
-                    await uow.SaveChangesAsync(CancellationToken.None);
-                }
-            }
-            foreach (var e in events)
-            {
-                try
-                {
-                    e.Status = EventStatus.Processing;
                     await uow.SaveChangesAsync(stoppingToken);
 
                     await _retryPolicy.ExecuteAsync(async () =>
                     {
-                        var type = Type.GetType(e.EventType)!;
+                        var eventType = Type.GetType(eventLog.EventType)!;
 
-                        var message = JsonSerializer.Deserialize(e.EventData, type)!;
+                        var message =
+                            JsonSerializer.Deserialize(
+                                eventLog.EventData,
+                                eventType)!;
 
-                        var queue = GetQueueName(type);
+                        var queue =
+                            GetQueueName(eventType);
 
-                        await bus.PublishAsync((dynamic)message, queue);
+                        _logger.LogInformation("Publishing event {EventType}",eventLog.EventType);
 
-                        e.Status = EventStatus.Published;
-                        await uow.SaveChangesAsync(stoppingToken);
-                    });
-                }
-                catch
-                {
-                    e.Status = EventStatus.Failed;
+                        await bus.PublishAsync(
+                            (dynamic)message,
+                            queue);
+
+                    repo.MarkAsPublished(eventLog);
+
                     await uow.SaveChangesAsync(stoppingToken);
+
+                    _logger.LogInformation("Event {EventType} published successfully", eventLog.EventType);
+
+                    });
+
+                }
+                catch (Exception ex)
+                {
+
+                    repo.MarkAsFailed(eventLog);
+
+                    await uow.SaveChangesAsync(stoppingToken);
+
+                    _logger.LogError(ex, "Failed to publish event {EventType}", eventLog.EventType);
+
                 }
             }
-
             await Task.Delay(5000, stoppingToken);
         }
     }

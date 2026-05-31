@@ -22,9 +22,10 @@ public static class DependencyInjectionExtensions
         options.UseSqlServer(configuration.GetConnectionString("CatalogDb")));
 
         services.AddSingleton<IConnectionMultiplexer>(
-    _ => ConnectionMultiplexer.Connect(
-        configuration.GetConnectionString("Redis")!));
+    _ => ConnectionMultiplexer.Connect(configuration.GetConnectionString("Redis")!));
+
        services.AddCaching(configuration);
+
         services.AddScoped<IBookRepository, BookRepository>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();

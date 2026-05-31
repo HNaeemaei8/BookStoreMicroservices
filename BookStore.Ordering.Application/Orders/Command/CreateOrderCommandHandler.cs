@@ -4,6 +4,7 @@ using BookStore.Ordering.Domain.Enums;
 using BookStore.Shared.Common.Results;
 using Domain.Entities.IntegrationEventLog;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Shared.Contracts.Events;
 using System.Text.Json;
 
@@ -13,11 +14,12 @@ public class CreateOrderCommandHandler
     private readonly IOrderRepository _repo;
     private readonly IOutboxRepository _outbox;
     private readonly IUnitOfWork _uow;
-
+    private readonly ILogger<CreateOrderCommandHandler> _logger;
     public CreateOrderCommandHandler(
         IOrderRepository repo,
         IOutboxRepository outbox,
-        IUnitOfWork uow)
+        IUnitOfWork uow,
+        ILogger<CreateOrderCommandHandler> _logger)
     {
         _repo = repo;
         _outbox = outbox;
@@ -44,6 +46,8 @@ public class CreateOrderCommandHandler
             Status = OrderStatus.Pending,
             Items = new List<OrderItem> { item }
         };
+
+        _logger.LogInformation("Order created OrderId={OrderId}",order.Id);
 
         var orderEvent = new OrderCreatedEvent(order.Id, request.BookId, request.Quantity) { CorrelationId = new Guid() };
       

@@ -3,6 +3,7 @@ using BookStore.Ordering.Domain.Enums;
 using BookStore.Ordering.Infrastructure.Messaging.Connection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Shared.Contracts.Events;
@@ -15,13 +16,14 @@ public class StockFailedConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IRabbitMqConnection _rabbitMqConnection;
-
+    private readonly ILogger<StockFailedConsumer> _logger;
     public StockFailedConsumer(
         IServiceScopeFactory scopeFactory,
-        IRabbitMqConnection rabbitMqConnection)
+        IRabbitMqConnection rabbitMqConnection, ILogger<StockFailedConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _rabbitMqConnection = rabbitMqConnection;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(
@@ -72,8 +74,12 @@ public class StockFailedConsumer : BackgroundService
 
                         orderRepository.Update(order);
 
+
                         await unitOfWork.SaveChangesAsync(
                             CancellationToken.None);
+
+                        _logger.LogWarning("Order failed OrderId={OrderId}", message.OrderId);
+
                     }
                 }
 

@@ -36,9 +36,6 @@ using Microsoft.EntityFrameworkCore;
         eventLog.Status = EventStatus.Processing;
     }
 
-    public Task SaveChangesAsync(CancellationToken ct)
-    => _dbContext.SaveChangesAsync(ct);
-
     public void MarkAsFailed(IntegrationEventLog eventLog)
     {
         eventLog.Status = EventStatus.Failed;

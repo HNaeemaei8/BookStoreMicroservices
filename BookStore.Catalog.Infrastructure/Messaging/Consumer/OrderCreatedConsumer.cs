@@ -2,6 +2,7 @@
 using BookStore.Catalog.Infrastructure.Messaging.Connection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Shared.Contracts.Events;
@@ -14,13 +15,14 @@ public class OrderCreatedConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IRabbitMqConnection _rabbitMqConnection;
-
+    private readonly ILogger<OrderCreatedConsumer> _logger;
     public OrderCreatedConsumer(
         IServiceScopeFactory scopeFactory,
-        IRabbitMqConnection rabbitMqConnection)
+        IRabbitMqConnection rabbitMqConnection, ILogger<OrderCreatedConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _rabbitMqConnection = rabbitMqConnection;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(
@@ -83,6 +85,8 @@ public class OrderCreatedConsumer : BackgroundService
     private async Task ProcessOrder(
         OrderCreatedEvent message)
     {
+        _logger.LogInformation("OrderCreated received OrderId={OrderId}",message.OrderId);
+
         using var scope =
             _scopeFactory.CreateScope();
 
@@ -103,6 +107,7 @@ public class OrderCreatedConsumer : BackgroundService
 
         if (book is null)
         {
+
             await bus.PublishAsync(
                 new StockFailedEvent(
                     message.OrderId,
@@ -110,17 +115,22 @@ public class OrderCreatedConsumer : BackgroundService
                     message.CorrelationId),
                 "stock-failed");
 
+            _logger.LogWarning("Book not found BookId={BookId}", message.BookId);
+
             return;
         }
 
         if (book.Stock < message.Quantity)
         {
+
             await bus.PublishAsync(
                 new StockFailedEvent(
                     message.OrderId,
                     "Not enough stock",
                     message.CorrelationId),
                 "stock-failed");
+
+            _logger.LogWarning("Book not found BookId={BookId}", message.BookId);
 
             return;
         }
@@ -129,13 +139,16 @@ public class OrderCreatedConsumer : BackgroundService
 
         repo.Update(book);
 
-        await unitOfWork.SaveChangesAsync(
-            CancellationToken.None);
+        await unitOfWork.SaveChangesAsync(CancellationToken.None);
+
 
         await bus.PublishAsync(
             new StockReservedEvent(
                 message.OrderId,
                 message.CorrelationId),
             "stock-reserved");
+
+        _logger.LogInformation("Stock reserved OrderId={OrderId}", message.OrderId);
+
     }
 }
