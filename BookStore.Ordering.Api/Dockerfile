@@ -10,7 +10,7 @@ COPY . .
 RUN dotnet restore "BookStore.Ordering.API/BookStore.Ordering.API.csproj"
 
 RUN dotnet publish "BookStore.Ordering.API/BookStore.Ordering.API.csproj" \
-    -c Release \
+-c Release \
     -o /app/publish
 
 FROM base AS final

@@ -7,6 +7,7 @@ using BookStore.Catalog.Infrastructure.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using RabbitMQ.Client;
 using StackExchange.Redis;
 
 namespace BookStore.Catalog.Infrastructure.Extensions;
@@ -32,12 +33,19 @@ public static class DependencyInjectionExtensions
 
         services.AddScoped<IBookCacheService, BookCacheService>();
 
-        services.AddSingleton<IRabbitMqConnection>(
-            _ => new RabbitMqConnection(
-                configuration["RabbitMq:Host"]!,
-                int.Parse(configuration["RabbitMq:Port"]!),
-                configuration["RabbitMq:Username"]!,
-                configuration["RabbitMq:Password"]!));
+        services.AddSingleton<IConnectionFactory>(_ =>
+        new ConnectionFactory
+       {
+        HostName = configuration["RabbitMq:Host"],
+        Port = int.Parse(configuration["RabbitMq:Port"]!),
+        UserName = configuration["RabbitMq:Username"],
+        Password = configuration["RabbitMq:Password"],
+
+        AutomaticRecoveryEnabled = true,
+        NetworkRecoveryInterval = TimeSpan.FromSeconds(5)
+       });
+
+        services.AddScoped<IRabbitMqConnection, RabbitMqConnection>();
 
         services.AddScoped<IMessageBus, RabbitMqMessageBus>();
         services.AddHostedService<OrderCreatedConsumer>();

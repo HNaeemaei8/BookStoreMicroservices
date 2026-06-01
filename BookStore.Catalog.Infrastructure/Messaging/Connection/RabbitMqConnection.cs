@@ -1,34 +1,26 @@
-﻿using RabbitMQ.Client;
+﻿using BookStore.Catalog.Infrastructure.Messaging.Connection;
+using RabbitMQ.Client;
 
-namespace BookStore.Catalog.Infrastructure.Messaging.Connection;
-
-public class RabbitMqConnection
-    : IRabbitMqConnection, IDisposable
+public class RabbitMqConnection : IRabbitMqConnection, IDisposable
 {
-    private readonly IConnection _connection;
+    private readonly IConnectionFactory _factory;
+    private IConnection? _connection;
 
-    public RabbitMqConnection(
-        string host,
-        int port,
-        string username,
-        string password)
+    public RabbitMqConnection(IConnectionFactory factory)
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = host,
-            Port = port,
-            UserName = username,
-            Password = password
-        };
-
-        _connection =
-            factory.CreateConnectionAsync()
-                   .GetAwaiter()
-                   .GetResult();
+        _factory = factory;
     }
 
     public IConnection GetConnection()
     {
+        if (_connection == null || !_connection.IsOpen)
+        {
+            _connection = _factory
+                .CreateConnectionAsync()
+                .GetAwaiter()
+                .GetResult(); 
+        }
+
         return _connection;
     }
 
