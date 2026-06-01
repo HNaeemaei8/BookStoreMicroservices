@@ -7,6 +7,7 @@ builder.Services.AddInfrastructure(
     builder.Configuration);
 
 builder.Services.AddControllers();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddMediatR(cfg =>
 {
@@ -15,6 +16,8 @@ builder.Services.AddMediatR(cfg =>
 });
 
 var app = builder.Build();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapControllers();
 
