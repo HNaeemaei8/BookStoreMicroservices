@@ -47,9 +47,15 @@ public class CreateOrderCommandHandler
             Items = new List<OrderItem> { item }
         };
 
-        _logger.LogInformation("Order created OrderId={OrderId}",order.Id);
+        _logger.LogInformation("Order created OrderId={OrderId}", order.Id);
 
-        var orderEvent = new OrderCreatedEvent(order.Id, request.BookId, request.Quantity) { CorrelationId = new Guid() };
+        var orderEvent = new OrderCreatedEvent
+        {
+            BookId = request.BookId,
+            Quantity = request.Quantity,
+            CorrelationId = new Guid(),
+            OrderId = order.Id
+        };
       
         var log = new IntegrationEventLog
         {

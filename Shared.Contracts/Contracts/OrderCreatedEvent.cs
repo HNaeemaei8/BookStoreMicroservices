@@ -1,8 +1,9 @@
-﻿namespace Shared.Contracts.Events
+﻿namespace Shared.Contracts.Events;
+
+public class OrderCreatedEvent
 {
-    public record OrderCreatedEvent(Guid OrderId, Guid BookId, int Quantity)
-    {
-        public Guid CorrelationId { get; set; }
-    }
-   
+    public Guid OrderId { get; set; }
+    public Guid BookId { get; set; }
+    public int Quantity { get; set; }
+    public Guid CorrelationId { get; set; }
 }

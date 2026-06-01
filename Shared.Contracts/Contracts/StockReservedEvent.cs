@@ -1,6 +1,7 @@
-﻿namespace Shared.Contracts.Events
+﻿namespace Shared.Contracts.Events;
+
+public class StockReservedEvent
 {
-    public record StockReservedEvent(
-        Guid OrderId,
-        Guid CorrelationId);
+    public Guid OrderId { get; set; }
+    public DateTime ReservedAt { get; set; }
 }

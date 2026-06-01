@@ -1,5 +1,6 @@
 using BookStore.Catalog.Application.Command;
 using BookStore.Catalog.Infrastructure.Extensions;
+using BookStore.Shared.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,8 +17,11 @@ builder.Services.AddMediatR(cfg =>
 });
 
 var app = builder.Build();
+
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapControllers();
 

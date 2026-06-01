@@ -1,6 +1,9 @@
-﻿namespace OrderService.Application.Interfaces;
+﻿namespace BookStore.Ordering.Application.Interfaces;
 
 public interface IMessageBus
 {
-    Task PublishAsync<T>(T message, string queueName, string exchangeName = "") where T : class;
+    Task PublishAsync<T>(
+        T message,
+        string queueName)
+        where T : class;
 }

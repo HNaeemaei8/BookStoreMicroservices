@@ -48,7 +48,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IRabbitMqConnection, RabbitMqConnection>();
 
         services.AddScoped<IMessageBus, RabbitMqMessageBus>();
+
         services.AddHostedService<OrderCreatedConsumer>();
+
         return services;
     }
 }

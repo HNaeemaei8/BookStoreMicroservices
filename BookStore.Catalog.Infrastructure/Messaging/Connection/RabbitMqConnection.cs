@@ -5,6 +5,7 @@ public class RabbitMqConnection : IRabbitMqConnection, IDisposable
 {
     private readonly IConnectionFactory _factory;
     private IConnection? _connection;
+    private readonly object _lock = new();
 
     public RabbitMqConnection(IConnectionFactory factory)
     {
@@ -13,15 +14,37 @@ public class RabbitMqConnection : IRabbitMqConnection, IDisposable
 
     public IConnection GetConnection()
     {
-        if (_connection == null || !_connection.IsOpen)
-        {
-            _connection = _factory
-                .CreateConnectionAsync()
-                .GetAwaiter()
-                .GetResult(); 
-        }
+        if (_connection != null && _connection.IsOpen)
+            return _connection;
 
-        return _connection;
+        lock (_lock)
+        {
+            if (_connection != null && _connection.IsOpen)
+                return _connection;
+
+            var retryCount = 0;
+
+            while (true)
+            {
+                try
+                {
+                    _connection = _factory.CreateConnectionAsync()
+                        .GetAwaiter()
+                        .GetResult();
+
+                    return _connection;
+                }
+                catch
+                {
+                    retryCount++;
+
+                    if (retryCount > 10)
+                        throw;
+
+                    Thread.Sleep(3000); 
+                }
+            }
+        }
     }
 
     public void Dispose()

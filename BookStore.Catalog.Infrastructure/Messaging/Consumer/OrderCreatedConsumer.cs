@@ -16,23 +16,21 @@ public class OrderCreatedConsumer : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IRabbitMqConnection _rabbitMqConnection;
     private readonly ILogger<OrderCreatedConsumer> _logger;
+
     public OrderCreatedConsumer(
         IServiceScopeFactory scopeFactory,
-        IRabbitMqConnection rabbitMqConnection, ILogger<OrderCreatedConsumer> logger)
+        IRabbitMqConnection rabbitMqConnection,
+        ILogger<OrderCreatedConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _rabbitMqConnection = rabbitMqConnection;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(
-        CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var connection =
-            _rabbitMqConnection.GetConnection();
-
-        var channel =
-            await connection.CreateChannelAsync();
+        var connection = _rabbitMqConnection.GetConnection();
+        var channel = await connection.CreateChannelAsync();
 
         await channel.QueueDeclareAsync(
             queue: "order-created",
@@ -40,31 +38,29 @@ public class OrderCreatedConsumer : BackgroundService
             exclusive: false,
             autoDelete: false);
 
-        var consumer =
-            new AsyncEventingBasicConsumer(channel);
+        var consumer = new AsyncEventingBasicConsumer(channel);
 
-        consumer.ReceivedAsync += async (sender, ea) =>
+        consumer.ReceivedAsync += async (_, ea) =>
         {
             try
             {
-                var json =
-                    Encoding.UTF8.GetString(
-                        ea.Body.ToArray());
+                var json = Encoding.UTF8.GetString(ea.Body.ToArray());
+                var message = JsonSerializer.Deserialize<OrderCreatedEvent>(json);
 
-                var message =
-                    JsonSerializer.Deserialize<OrderCreatedEvent>(json);
-
-                if (message is not null)
+                if (message == null)
                 {
-                    await ProcessOrder(message);
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);
+                    return;
                 }
 
-                await channel.BasicAckAsync(
-                    ea.DeliveryTag,
-                    false);
+                await ProcessOrder(message);
+
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Error processing OrderCreated");
+
                 await channel.BasicNackAsync(
                     ea.DeliveryTag,
                     false,
@@ -77,78 +73,74 @@ public class OrderCreatedConsumer : BackgroundService
             autoAck: false,
             consumer: consumer);
 
-        await Task.Delay(
-            Timeout.Infinite,
-            stoppingToken);
+        await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private async Task ProcessOrder(
-        OrderCreatedEvent message)
+    private async Task ProcessOrder(OrderCreatedEvent message)
     {
-        _logger.LogInformation("OrderCreated received OrderId={OrderId}",message.OrderId);
+        _logger.LogInformation(
+            "OrderCreated received OrderId={OrderId}",
+            message.OrderId);
 
-        using var scope =
-            _scopeFactory.CreateScope();
+        using var scope = _scopeFactory.CreateScope();
 
-        var repo =
-            scope.ServiceProvider
-                 .GetRequiredService<IBookRepository>();
+        var repo = scope.ServiceProvider.GetRequiredService<IBookRepository>();
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-        var bus =
-            scope.ServiceProvider
-                 .GetRequiredService<IMessageBus>();
-
-        var unitOfWork =
-            scope.ServiceProvider
-                 .GetRequiredService<IUnitOfWork>();
-
-        var book =
-            await repo.GetByIdAsync(message.BookId);
+        var book = await repo.GetByIdAsync(message.BookId);
 
         if (book is null)
         {
-
             await bus.PublishAsync(
-                new StockFailedEvent(
-                    message.OrderId,
-                    "Book not found",
-                    message.CorrelationId),
+                new StockFailedEvent
+                {
+                    OrderId = message.OrderId,
+                    Reason = "Book not found",
+                    FailedAt = DateTime.UtcNow
+                },
                 "stock-failed");
 
-            _logger.LogWarning("Book not found BookId={BookId}", message.BookId);
+            _logger.LogWarning(
+                "Book not found BookId={BookId}",
+                message.BookId);
 
             return;
         }
 
         if (book.Stock < message.Quantity)
         {
-
             await bus.PublishAsync(
-                new StockFailedEvent(
-                    message.OrderId,
-                    "Not enough stock",
-                    message.CorrelationId),
+                new StockFailedEvent
+                {
+                    OrderId = message.OrderId,
+                    Reason = "Not enough stock",
+                    FailedAt = DateTime.UtcNow
+                },
                 "stock-failed");
 
-            _logger.LogWarning("Book not found BookId={BookId}", message.BookId);
+            _logger.LogWarning(
+                "Not enough stock BookId={BookId}",
+                message.BookId);
 
             return;
         }
 
         book.Stock -= message.Quantity;
-
         repo.Update(book);
 
         await unitOfWork.SaveChangesAsync(CancellationToken.None);
 
-
         await bus.PublishAsync(
-            new StockReservedEvent(
-                message.OrderId,
-                message.CorrelationId),
+            new StockReservedEvent
+            {
+                OrderId = message.OrderId,
+                ReservedAt = DateTime.UtcNow
+            },
             "stock-reserved");
 
-        _logger.LogInformation("Stock reserved OrderId={OrderId}", message.OrderId);
-
+        _logger.LogInformation(
+            "Stock reserved OrderId={OrderId}",
+            message.OrderId);
     }
 }

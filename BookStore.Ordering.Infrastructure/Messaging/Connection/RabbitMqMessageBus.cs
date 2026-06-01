@@ -1,29 +1,26 @@
-﻿using RabbitMQ.Client;
+﻿using BookStore.Ordering.Application.Interfaces;
+using BookStore.Ordering.Infrastructure.Messaging.Connection;
+using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
-using OrderService.Application.Interfaces;
 
 namespace BookStore.Ordering.Infrastructure.Messaging.Connection;
 
 public class RabbitMqMessageBus : IMessageBus
 {
-    private readonly IConnection _connection;
+    private readonly IRabbitMqConnection _rabbitMqConnection;
 
-    public RabbitMqMessageBus(
-        IRabbitMqConnection rabbitMqConnection)
+    public RabbitMqMessageBus(IRabbitMqConnection rabbitMqConnection)
     {
-        _connection =
-            rabbitMqConnection.GetConnection();
+        _rabbitMqConnection = rabbitMqConnection;
     }
 
-    public async Task PublishAsync<T>(
-        T message,
-        string queueName,
-        string exchangeName = "")
+    public async Task PublishAsync<T>(T message, string queueName)
         where T : class
     {
-        await using var channel =
-            await _connection.CreateChannelAsync();
+        var connection = _rabbitMqConnection.GetConnection();
+
+        await using var channel = await connection.CreateChannelAsync();
 
         await channel.QueueDeclareAsync(
             queue: queueName,
@@ -31,20 +28,16 @@ public class RabbitMqMessageBus : IMessageBus
             exclusive: false,
             autoDelete: false);
 
-        var json =
-            JsonSerializer.Serialize(message);
+        var json = JsonSerializer.Serialize(message);
+        var body = Encoding.UTF8.GetBytes(json);
 
-        var body =
-            Encoding.UTF8.GetBytes(json);
-
-        var properties =
-            new BasicProperties
-            {
-                Persistent = true
-            };
+        var properties = new BasicProperties
+        {
+            Persistent = true
+        };
 
         await channel.BasicPublishAsync(
-            exchange: exchangeName,
+            exchange: "",
             routingKey: queueName,
             mandatory: false,
             basicProperties: properties,
