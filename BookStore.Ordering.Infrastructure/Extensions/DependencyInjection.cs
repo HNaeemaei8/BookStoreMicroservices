@@ -45,6 +45,8 @@ public static class DependencyInjection
 
         services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
 
+        services.AddScoped<IRabbitMqConnection, RabbitMqConnection>();
+
         services.AddHostedService<OutboxPublisherService>();
 
         services.AddHostedService<StockReservedConsumer>();
