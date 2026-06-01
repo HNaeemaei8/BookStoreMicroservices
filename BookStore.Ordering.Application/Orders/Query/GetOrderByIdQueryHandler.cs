@@ -38,7 +38,6 @@ public class GetOrderByIdQueryHandler
 
             TotalPrice = order.TotalPrice,
 
-            // حرفه‌ای: aggregation درست از Items
             Items = order.Items.Select(i => new OrderItemDto
             {
                 BookId = i.BookId,

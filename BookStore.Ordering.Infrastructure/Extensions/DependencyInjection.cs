@@ -1,13 +1,16 @@
 ﻿
 using BookStore.Ordering.Application.Interfaces;
 using BookStore.Ordering.Infrastructure.Messaging.Connection;
-
+using BookStore.Ordering.Infrastructure.Messaging.Consumers;
+using BookStore.Ordering.Infrastructure.Messaging.Publishers;
 using BookStore.Ordering.Infrastructure.Persistence;
 using BookStore.Ordering.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OrderService.Application.Interfaces;
+using RabbitMQ.Client;
 
 
 namespace BookStore.Ordering.Infrastructure.Extensions;
@@ -28,30 +31,25 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-        services.AddSingleton<IRabbitMqConnection>(sp =>
-        {
-            var config =
-                configuration.GetSection("RabbitMq");
+        services.AddSingleton<IConnectionFactory>(_ =>
+            new ConnectionFactory
+            {
+                HostName = configuration["RabbitMq:Host"],
+                Port = int.Parse(configuration["RabbitMq:Port"]!),
+                UserName = configuration["RabbitMq:Username"],
+                Password = configuration["RabbitMq:Password"],
 
-            var logger =
-                sp.GetRequiredService<
-                    ILogger<RabbitMqConnection>>();
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(5)
+            });
 
-            return new RabbitMqConnection(
-                config["HostName"]!,
-                5672,
-                config["UserName"]!,
-                config["Password"]!,
-                logger);
-        });
+        services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
 
-        //services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
+        services.AddHostedService<OutboxPublisherService>();
 
-        //services.AddHostedService<OutboxPublisherService>();
+        services.AddHostedService<StockReservedConsumer>();
 
-        //services.AddHostedService<StockReservedConsumer>();
-
-        //services.AddHostedService<StockFailedConsumer>();
+        services.AddHostedService<StockFailedConsumer>();
 
         return services;
     }
