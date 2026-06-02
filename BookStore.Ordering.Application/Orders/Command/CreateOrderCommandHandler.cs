@@ -19,11 +19,12 @@ public class CreateOrderCommandHandler
         IOrderRepository repo,
         IOutboxRepository outbox,
         IUnitOfWork uow,
-        ILogger<CreateOrderCommandHandler> _logger)
+        ILogger<CreateOrderCommandHandler> logger)
     {
         _repo = repo;
         _outbox = outbox;
         _uow = uow;
+        _logger = logger;
     }
 
     public async Task<Result<Guid>> Handle(CreateOrderCommand request, CancellationToken ct)
@@ -31,32 +32,33 @@ public class CreateOrderCommandHandler
         if (request.Quantity <= 0)
             return Result.Failure<Guid>(Error.Validation("Invalid quantity"));
 
-        var item = new OrderItem
-        {
-            Id = Guid.NewGuid(),
-            BookId = request.BookId,
-            Quantity = request.Quantity,
-            UnitPrice = 0
-        };
+        var orderId = Guid.NewGuid();
 
         var order = new Order
         {
-            Id = Guid.NewGuid(),
+            Id = orderId,
             CreatedAt = DateTime.UtcNow,
             Status = OrderStatus.Pending,
-            Items = new List<OrderItem> { item }
+            Items = new List<OrderItem>
+        {
+            new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                BookId = request.BookId,
+                Quantity = request.Quantity,
+                UnitPrice = 0
+            }
+        }
         };
-
-        _logger.LogInformation("Order created OrderId={OrderId}", order.Id);
 
         var orderEvent = new OrderCreatedEvent
         {
             BookId = request.BookId,
             Quantity = request.Quantity,
-            CorrelationId = new Guid(),
-            OrderId = order.Id
+            CorrelationId = Guid.NewGuid(),
+            OrderId = orderId
         };
-      
+
         var log = new IntegrationEventLog
         {
             Id = Guid.NewGuid(),
@@ -67,11 +69,15 @@ public class CreateOrderCommandHandler
             CorrelationId = orderEvent.CorrelationId
         };
 
+        _logger.LogInformation("Creating order {OrderId}", orderId);
+
         await _repo.AddAsync(order);
         _outbox.Add(log);
 
         await _uow.SaveChangesAsync(ct);
 
-        return Result.Success(order.Id);
+        _logger.LogInformation("Order saved successfully {OrderId}", orderId);
+
+        return Result.Success(orderId);
     }
 }
