@@ -1,6 +1,8 @@
 using BookStore.Catalog.Application.Command;
 using BookStore.Catalog.Infrastructure.Extensions;
+using BookStore.Catalog.Infrastructure.Persistence;
 using BookStore.Shared.API.Middleware;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,5 +26,10 @@ app.UseSwaggerUI();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapControllers();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
 
+    db.Database.Migrate();
+}
 app.Run();

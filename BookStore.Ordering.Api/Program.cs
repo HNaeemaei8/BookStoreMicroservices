@@ -1,7 +1,9 @@
 ﻿using BookStore.Ordering.API.Extention;
 using BookStore.Ordering.Infrastructure.Extensions;
+using BookStore.Ordering.Infrastructure.Persistence;
 using BookStore.Shared.API.DependencyInjection;
 using BookStore.Shared.API.Middleware;
+using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
 
@@ -35,5 +37,12 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSharedApi();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+
+    db.Database.Migrate();
+}
 
 app.Run();
