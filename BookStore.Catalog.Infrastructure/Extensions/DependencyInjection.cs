@@ -45,7 +45,7 @@ public static class DependencyInjectionExtensions
         NetworkRecoveryInterval = TimeSpan.FromSeconds(5)
        });
 
-        services.AddScoped<IRabbitMqConnection, RabbitMqConnection>();
+        services.AddSingleton<IRabbitMqConnection, RabbitMqConnection>();
 
         services.AddScoped<IMessageBus, RabbitMqMessageBus>();
 
