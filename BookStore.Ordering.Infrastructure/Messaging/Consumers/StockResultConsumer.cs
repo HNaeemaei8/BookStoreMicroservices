@@ -4,6 +4,7 @@ using BookStore.Ordering.Infrastructure.Messaging.Connection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Shared.Contracts.Events;
 using System.Text;
@@ -70,9 +71,42 @@ public class StockResultConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "StockResultConsumer failed");
+                _logger.LogError(ex, "Error processing OrderCreated");
 
-                await channel.BasicNackAsync(ea.DeliveryTag, false, true);
+                var retryCount = 0;
+
+                if (ea.BasicProperties?.Headers != null &&
+                    ea.BasicProperties.Headers.TryGetValue("retry-count", out var value))
+                {
+                    retryCount = Convert.ToInt32(value);
+                }
+
+                retryCount++;
+
+                if (retryCount > 3)
+                {
+                    await channel.BasicNackAsync(ea.DeliveryTag, false, false); 
+                    return;
+                }
+
+                var newProps = new BasicProperties
+                {
+                    Persistent = true,
+                    Headers = new Dictionary<string, object>
+                    {
+                        ["retry-count"] = retryCount
+                    }
+                };
+
+                await channel.BasicPublishAsync(
+                    exchange: "",
+                    routingKey: "order-created",
+                    mandatory: false,
+                    basicProperties: newProps,
+                    body: ea.Body
+                );
+
+                await channel.BasicAckAsync(ea.DeliveryTag, false);
             }
         };
         var consumerTag = $"{nameof(StockResultConsumer)}-{Guid.NewGuid()}";
